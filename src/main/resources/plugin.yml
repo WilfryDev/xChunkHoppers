@@ -1,0 +1,15 @@
+name: xChunkHoppers
+version: 1.0.0
+main: jn.willfrydev.xchunkhoppers.xChunkHoppers
+api-version: 1.16
+authors: [xPlugins]
+depend: [PlaceholderAPI]
+commands:
+  xchunkhopper:
+    description: Comandos principales del plugin
+    aliases: [xch, chunkhopper]
+    permission: xchunkhoppers.admin
+permissions:
+  xchunkhoppers.admin:
+    description: Permite administrar los Chunk Hoppers
+    default: op
