@@ -252,7 +252,9 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
             if (radius == -1) {
                 if (hopperLoc.getChunk().equals(itemLoc.getChunk())) shouldCollect = true;
             } else {
-                if (hopperLoc.distance(itemLoc) <= radius) shouldCollect = true;
+                // Centre la position du hopper au milieu du bloc pour un rayon symétrique
+                Location hopperCenter = hopperLoc.clone().add(0.5, 0.5, 0.5);
+                if (hopperCenter.distance(itemLoc) <= radius+1) shouldCollect = true;
             }
 
             if (shouldCollect) {
