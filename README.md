@@ -206,7 +206,21 @@ public class YourPlugin extends JavaPlugin {
 
 ---
 
+## 👥 Contributors
+
+<div align="left">
+  <a href="https://github.com/WillfryDev">
+    <img src="https://i.postimg.cc/FHCGmC9F/Anuel-AA.jpg" width="40" style="border-radius:50%">
+  </a>
+  <a href="https://github.com/e-Lov">
+    <img src="https://github.com/e-Lov.png" width="40" style="border-radius:50%">
+  </a>
+</div>
+
+---
+
 <div align="center">
+
   
   Made with ❤️ by **WillfryDev** for the community.  
   _© 2025 xPlugins_
