@@ -223,6 +223,6 @@ public class YourPlugin extends JavaPlugin {
 
   
   Made with ❤️ by **WillfryDev** for the community.  
-  _© 2025 xPlugins_
+  _© 2026 xPlugins_
 
 </div>
