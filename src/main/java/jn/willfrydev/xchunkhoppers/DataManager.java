@@ -19,6 +19,7 @@ public class DataManager {
     private FileConfiguration dataConfig;
 
     public DataManager(xChunkHoppers plugin) {
+
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "data.yml");
         if (!file.exists()) {
@@ -32,6 +33,7 @@ public class DataManager {
     }
 
     public void saveData() {
+
         try {
             dataConfig.save(file);
         } catch (IOException e) {

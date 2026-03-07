@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2025 xPlugins x WillfryDev
+ * Copyright (c) 2025 xPlugins
  */
 package jn.willfrydev.xchunkhoppers.api;
 

@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 /**
  * xChunkHoppers Core Logic - Menu Edition
- * Author: xPlugins x WillfryDev
+ * Author: xPlugins
  */
 public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecutor, TabCompleter, ChunkHopperAPI {
 
@@ -59,15 +59,15 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         saveDefaultConfig();
 
         dataManager = new DataManager(this);
+
         typeKey = new NamespacedKey(this, "hopper_type");
 
         loadConfiguration();
 
-        // Registrar Eventos
         getServer().getPluginManager().registerEvents(this, this);
 
-        // Registrar GUI
         menuGUI = new GUI(this);
+
         getServer().getPluginManager().registerEvents(menuGUI, this);
 
         PluginCommand cmd = getCommand("xchunkhopper");
@@ -85,6 +85,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
 
     @Override
     public void onDisable() {
+
         dataManager.saveData();
         hopperCache.clear();
         log(colorize("&c&lxChunkHoppers Desactivado."));
@@ -95,15 +96,19 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     }
 
     public void loadConfiguration() {
+
         reloadConfig();
+
         FileConfiguration config = getConfig();
         isEnabled = config.getBoolean("settings.enabled", true);
         useWhitelist = config.getBoolean("settings.use-whitelist", false);
         filterList = config.getStringList("settings.filter-list");
 
         typeRadiusMap.clear();
+
         ConfigurationSection section = config.getConfigurationSection("hopper-types");
         if (section != null) {
+
             for (String key : section.getKeys(false)) {
                 int radius = section.getInt(key + ".radius", -1);
                 typeRadiusMap.put(key, radius);
@@ -114,13 +119,15 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         hopperCache.putAll(dataManager.loadHoppers());
     }
 
-    // --- UTILS ---
     private String colorize(String message) {
+
         if (message == null) return "";
         Matcher matcher = HEX_PATTERN.matcher(message);
         StringBuffer buffer = new StringBuffer();
         while (matcher.find()) {
+
             try {
+
                 String hexCode = matcher.group(1);
                 matcher.appendReplacement(buffer, net.md_5.bungee.api.ChatColor.of("#" + hexCode).toString());
             } catch (Exception ignored) {}
@@ -129,12 +136,12 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         return ChatColor.translateAlternateColorCodes('&', buffer.toString());
     }
 
-    // --- API IMPL ---
     @Override
     public boolean isChunkHopper(Block block) { return hopperCache.containsKey(block.getLocation()); }
 
     @Override
     public Location getHopperLocation(Chunk chunk) {
+
         for (Map.Entry<Location, String> entry : hopperCache.entrySet()) {
             if (entry.getKey().getChunk().equals(chunk)) return entry.getKey();
         }
@@ -148,14 +155,17 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     public ItemStack getHopperItem(int amount) { return getHopperItem("default", amount); }
 
     public ItemStack getHopperItem(String type, int amount) {
+
         if (!typeRadiusMap.containsKey(type)) return new ItemStack(Material.HOPPER, amount);
 
         ItemStack item = new ItemStack(Material.HOPPER, amount);
         ItemMeta meta = item.getItemMeta();
         FileConfiguration config = getConfig();
+
         String path = "hopper-types." + type;
 
         if (meta != null) {
+
             String name = colorize(config.getString(path + ".name", "&dHopper"));
             meta.setDisplayName(name);
             List<String> lore = config.getStringList(path + ".lore").stream()
@@ -178,14 +188,17 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         return colorize(prefix + msg);
     }
 
-    // --- EVENTOS ---
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
+
         if (!isEnabled) return;
         ItemStack item = event.getItemInHand();
+
         if (item.getType() == Material.HOPPER && item.getItemMeta() != null) {
+
             PersistentDataContainer container = item.getItemMeta().getPersistentDataContainer();
             if (container.has(typeKey, PersistentDataType.STRING)) {
+
                 String type = container.get(typeKey, PersistentDataType.STRING);
                 if (!event.getPlayer().hasPermission(getConfig().getString("permissions.place"))) {
                     event.getPlayer().sendMessage(getMsg("no-permission"));
@@ -239,6 +252,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
 
     @EventHandler
     public void onItemSpawn(ItemSpawnEvent event) {
+
         if (!isEnabled) return;
         Location itemLoc = event.getLocation();
         for (Map.Entry<Location, String> entry : hopperCache.entrySet()) {
@@ -250,16 +264,19 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
             boolean shouldCollect = false;
 
             if (radius == -1) {
+
                 if (hopperLoc.getChunk().equals(itemLoc.getChunk())) shouldCollect = true;
             } else {
-                // Centre la position du hopper au milieu du bloc pour un rayon symétrique
+
                 Location hopperCenter = hopperLoc.clone().add(0.5, 0.5, 0.5);
                 if (hopperCenter.distance(itemLoc) <= radius+1) shouldCollect = true;
             }
 
             if (shouldCollect) {
+
                 Block block = hopperLoc.getBlock();
                 if (block.getState() instanceof Hopper) {
+
                     Hopper hopper = (Hopper) block.getState();
                     ItemStack item = event.getEntity().getItemStack();
                     boolean inList = filterList.contains(item.getType().toString());

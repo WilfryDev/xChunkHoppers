@@ -1,13 +1,16 @@
 plugins {
+
     id 'java'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'jn.willfrydev'
-version = '1.0.0'
+version = '1.0.2'
 
 repositories {
+
     mavenCentral()
+
     maven {
         name = "spigotmc-repo"
         url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
@@ -22,10 +25,13 @@ dependencies {
 
     compileOnly "org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT"
     compileOnly "me.clip:placeholderapi:2.11.6"
+
 }
 
 java {
+
     toolchain {
+
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
