@@ -1,9 +1,11 @@
 name: xChunkHoppers
-version: 1.0.0
+version: v1.0.3
+website: https://xplugins.es
 main: jn.willfrydev.xchunkhoppers.xChunkHoppers
 api-version: 1.16
 authors: [xPlugins]
 depend: [PlaceholderAPI]
+
 commands:
   xchunkhopper:
     description: Comandos principales del plugin

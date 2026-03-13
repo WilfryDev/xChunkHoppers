@@ -7,7 +7,10 @@
 package jn.willfrydev.xchunkhoppers;
 
 import jn.willfrydev.xchunkhoppers.api.ChunkHopperAPI;
+import jn.willfrydev.xchunkhoppers.managers.HologramManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import net.milkbowl.vault.economy.Economy;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.*;
 import org.bukkit.block.*;
 import org.bukkit.command.*;
@@ -16,13 +19,15 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -31,19 +36,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * xChunkHoppers Core Logic - Menu Edition
- * Author: xPlugins x WillfryDev
- */
 public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecutor, TabCompleter, ChunkHopperAPI {
 
     private static xChunkHoppers instance;
     private NamespacedKey typeKey;
-    private final Map<Location, String> hopperCache = new HashMap<>();
+    private final Map<Location, HopperData> hopperCache = new HashMap<>();
     private final Map<String, Integer> typeRadiusMap = new HashMap<>();
+    private static Economy econ = null;
 
     private DataManager dataManager;
-    private GUI menuGUI; // Instancia del menú
+    private HologramManager hologramManager;
+    private GUI menuGUI;
+    private final Map<String, org.bukkit.command.Command> dynamicCommands = new HashMap<>();
 
     private List<String> filterList;
     private boolean useWhitelist;
@@ -53,45 +57,96 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
 
     public static ChunkHopperAPI getAPI() { return instance; }
 
+    public Map<Location, HopperData> getHopperCache() {
+        return hopperCache;
+    }
+
+    public static class HopperData {
+        private final String type;
+        private final UUID owner;
+        private final String ownerName;
+        private final long placedTime;
+        private int collectedItems;
+
+        public HopperData(String type, UUID owner, String ownerName, long placedTime, int collectedItems) {
+            this.type = type;
+            this.owner = owner;
+            this.ownerName = ownerName;
+            this.placedTime = placedTime;
+            this.collectedItems = collectedItems;
+        }
+
+        public String getType() { return type; }
+        public UUID getOwner() { return owner; }
+        public String getOwnerName() { return ownerName; }
+        public long getPlacedTime() { return placedTime; }
+        public int getCollectedItems() { return collectedItems; }
+        public void addCollectedItems(int amount) { this.collectedItems += amount; }
+    }
+
     @Override
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
 
+        if (!setupEconomy()) {
+            getLogger().warning("Vault no detectado. La tienda no funcionara sin economia.");
+        }
+
         dataManager = new DataManager(this);
+        hologramManager = new HologramManager(this);
         typeKey = new NamespacedKey(this, "hopper_type");
 
-        loadConfiguration();
-
-        // Registrar Eventos
-        getServer().getPluginManager().registerEvents(this, this);
-
-        // Registrar GUI
         menuGUI = new GUI(this);
         getServer().getPluginManager().registerEvents(menuGUI, this);
 
-        PluginCommand cmd = getCommand("xchunkhopper");
-        if (cmd != null) {
-            cmd.setExecutor(this);
-            cmd.setTabCompleter(this);
-        }
+        loadConfiguration();
+
+        getServer().getPluginManager().registerEvents(this, this);
+
+        registerCommand("xchunkhopper");
 
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new HopperExpansion(this).register();
         }
 
-        log(colorize("&a&lxChunkHoppers &7(v" + getDescription().getVersion() + ") &bActivado."));
+        try { new Metrics(this, 30087); } catch (Exception ignored) {}
+
+        for (Map.Entry<Location, HopperData> entry : hopperCache.entrySet()) {
+            hologramManager.spawnHologram(entry.getKey(), entry.getValue());
+        }
+
+        log(colorize("&a&lxChunkHoppers &bActivado (v" + getDescription().getVersion() + ") &fby WillfryDev"));
     }
+
+    public void log(String msg) {
+        Bukkit.getConsoleSender().sendMessage(colorize("&8[&d&lxCH&8] " + msg));
+    }
+
+    private void registerCommand(String name) {
+        PluginCommand cmd = getCommand(name);
+        if (cmd != null) {
+            cmd.setExecutor(this);
+            cmd.setTabCompleter(this);
+        }
+    }
+
+    private boolean setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) return false;
+        RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) return false;
+        econ = rsp.getProvider();
+        return econ != null;
+    }
+
+    public static Economy getEconomy() { return econ; }
 
     @Override
     public void onDisable() {
-        dataManager.saveData();
-        hopperCache.clear();
+        unregisterDynamicCommands();
+        if (hologramManager != null) hologramManager.removeAll();
+        if (dataManager != null) dataManager.saveData();
         log(colorize("&c&lxChunkHoppers Desactivado."));
-    }
-
-    private void log(String msg) {
-        Bukkit.getConsoleSender().sendMessage("[xChunkHoppers] " + msg);
     }
 
     public void loadConfiguration() {
@@ -105,20 +160,63 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         ConfigurationSection section = config.getConfigurationSection("hopper-types");
         if (section != null) {
             for (String key : section.getKeys(false)) {
-                int radius = section.getInt(key + ".radius", -1);
-                typeRadiusMap.put(key, radius);
+                typeRadiusMap.put(key, section.getInt(key + ".radius", -1));
             }
         }
-
         hopperCache.clear();
         hopperCache.putAll(dataManager.loadHoppers());
+
+        registerDynamicCommands();
     }
 
-    // --- UTILS ---
-    private String colorize(String message) {
+    private void registerDynamicCommands() {
+        unregisterDynamicCommands();
+        List<String> commands = getConfig().getStringList("shop-menu.commands");
+        if (commands.isEmpty()) return;
+
+        try {
+            final java.lang.reflect.Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            bukkitCommandMap.setAccessible(true);
+            org.bukkit.command.CommandMap commandMap = (org.bukkit.command.CommandMap) bukkitCommandMap.get(Bukkit.getServer());
+
+            for (String cmdName : commands) {
+                DynamicCommand cmd = new DynamicCommand(cmdName, menuGUI);
+                commandMap.register(getName().toLowerCase(), cmd);
+                dynamicCommands.put(cmdName.toLowerCase(), cmd);
+            }
+            log("&aComandos dinámicos registrados: " + commands);
+        } catch (Exception e) {
+            getLogger().severe("No se pudo registrar comandos dinámicos usando Reflection.");
+        }
+    }
+
+    private void unregisterDynamicCommands() {
+        if (dynamicCommands.isEmpty()) return;
+        try {
+            final java.lang.reflect.Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            bukkitCommandMap.setAccessible(true);
+            org.bukkit.command.CommandMap commandMap = (org.bukkit.command.CommandMap) bukkitCommandMap.get(Bukkit.getServer());
+
+            final java.lang.reflect.Field knownCommandsField = commandMap.getClass().getDeclaredField("knownCommands");
+            knownCommandsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, org.bukkit.command.Command> knownCommands = (Map<String, org.bukkit.command.Command>) knownCommandsField.get(commandMap);
+
+            for (Map.Entry<String, org.bukkit.command.Command> entry : dynamicCommands.entrySet()) {
+                knownCommands.remove(entry.getKey());
+                entry.getValue().unregister(commandMap);
+            }
+            dynamicCommands.clear();
+            log("&eComandos dinámicos antiguos desregistrados.");
+        } catch (Exception e) {
+            getLogger().warning("No se pudo desregistrar comandos dinámicos antiguos usando Reflection.");
+        }
+    }
+
+    public String colorize(String message) {
         if (message == null) return "";
         Matcher matcher = HEX_PATTERN.matcher(message);
-        StringBuffer buffer = new StringBuffer();
+        StringBuilder buffer = new StringBuilder();
         while (matcher.find()) {
             try {
                 String hexCode = matcher.group(1);
@@ -129,110 +227,73 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         return ChatColor.translateAlternateColorCodes('&', buffer.toString());
     }
 
-    // --- API IMPL ---
-    @Override
-    public boolean isChunkHopper(Block block) { return hopperCache.containsKey(block.getLocation()); }
-
-    @Override
-    public Location getHopperLocation(Chunk chunk) {
-        for (Map.Entry<Location, String> entry : hopperCache.entrySet()) {
-            if (entry.getKey().getChunk().equals(chunk)) return entry.getKey();
-        }
-        return null;
+    public String getMsg(String key) {
+        String msg = getConfig().getString("messages." + key);
+        String prefix = getConfig().getString("messages.prefix", "");
+        return colorize(prefix + (msg != null ? msg : key));
     }
 
-    @Override
-    public boolean hasHopper(Chunk chunk) { return getHopperLocation(chunk) != null; }
+    @Override public boolean isChunkHopper(Block block) { return hopperCache.containsKey(block.getLocation()); }
+    @Override public Location getHopperLocation(Chunk chunk) { return null; }
+    @Override public boolean hasHopper(Chunk chunk) { return false; }
 
     @Override
-    public ItemStack getHopperItem(int amount) { return getHopperItem("default", amount); }
-
     public ItemStack getHopperItem(String type, int amount) {
         if (!typeRadiusMap.containsKey(type)) return new ItemStack(Material.HOPPER, amount);
-
         ItemStack item = new ItemStack(Material.HOPPER, amount);
         ItemMeta meta = item.getItemMeta();
-        FileConfiguration config = getConfig();
-        String path = "hopper-types." + type;
-
         if (meta != null) {
-            String name = colorize(config.getString(path + ".name", "&dHopper"));
-            meta.setDisplayName(name);
-            List<String> lore = config.getStringList(path + ".lore").stream()
-                    .map(this::colorize)
-                    .collect(Collectors.toList());
-            meta.setLore(lore);
-            meta.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type);
-            item.setItemMeta(meta);
+            ConfigurationSection s = getConfig().getConfigurationSection("hopper-types." + type);
+            if (s != null) {
+                meta.setDisplayName(colorize(s.getString("name", "&dHopper")));
+                meta.setLore(s.getStringList("lore").stream().map(this::colorize).collect(Collectors.toList()));
+                meta.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type);
+                item.setItemMeta(meta);
+            }
         }
         return item;
     }
+    @Override public ItemStack getHopperItem(int amount) { return getHopperItem("default", amount); }
+    @Override public Collection<String> getFilterList() { return Collections.unmodifiableList(filterList); }
+    @Override public String getHopperType(Location loc) { return hopperCache.containsKey(loc) ? hopperCache.get(loc).getType() : null; }
+    @Override public UUID getHopperOwner(Location loc) { return hopperCache.containsKey(loc) ? hopperCache.get(loc).getOwner() : null; }
 
     @Override
-    public Collection<String> getFilterList() { return Collections.unmodifiableList(filterList); }
-
-    private String getMsg(String key) {
-        String msg = getConfig().getString("messages." + key);
-        if (msg == null) return key;
-        String prefix = getConfig().getString("messages.prefix", "");
-        return colorize(prefix + msg);
+    public void createHopper(Location loc, String type, UUID owner, String ownerName) {
+        HopperData data = new HopperData(type, owner, ownerName, System.currentTimeMillis(), 0);
+        dataManager.addHopper(loc, data);
+        hopperCache.put(loc, data);
+        hologramManager.spawnHologram(loc, data);
     }
 
-    // --- EVENTOS ---
+    @Override
+    public void deleteHopper(Location loc) {
+        dataManager.removeHopper(loc);
+        hopperCache.remove(loc);
+        hologramManager.removeHologram(loc);
+    }
+
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         if (!isEnabled) return;
         ItemStack item = event.getItemInHand();
-        if (item.getType() == Material.HOPPER && item.getItemMeta() != null) {
-            PersistentDataContainer container = item.getItemMeta().getPersistentDataContainer();
-            if (container.has(typeKey, PersistentDataType.STRING)) {
-                String type = container.get(typeKey, PersistentDataType.STRING);
-                if (!event.getPlayer().hasPermission(getConfig().getString("permissions.place"))) {
-                    event.getPlayer().sendMessage(getMsg("no-permission"));
-                    event.setCancelled(true);
-                    return;
-                }
-                Location loc = event.getBlock().getLocation();
-                dataManager.addHopper(loc, type);
-                hopperCache.put(loc, type);
-                String typeName = getConfig().getString("hopper-types." + type + ".name", type);
-                event.getPlayer().sendMessage(getMsg("placed").replace("%type%", colorize(typeName)));
-                playEffects(loc);
+        if (item.getType() == Material.HOPPER && item.hasItemMeta()) {
+            String type = item.getItemMeta().getPersistentDataContainer().get(typeKey, PersistentDataType.STRING);
+            if (type != null) {
+                createHopper(event.getBlock().getLocation(), type, event.getPlayer().getUniqueId(), event.getPlayer().getName());
+                event.getPlayer().sendMessage(getMsg("placed"));
             }
-        }
-    }
-
-    private void playEffects(Location location) {
-        FileConfiguration config = getConfig();
-        Location center = location.clone().add(0.5, 1.0, 0.5);
-        if (config.getBoolean("effects.sound.enabled")) {
-            try {
-                String s = config.getString("effects.sound.type");
-                location.getWorld().playSound(location, Sound.valueOf(s), 1f, 1f);
-            } catch (Exception e) {}
-        }
-        if (config.getBoolean("effects.particles.enabled")) {
-            try {
-                String p = config.getString("effects.particles.type");
-                location.getWorld().spawnParticle(Particle.valueOf(p), center, config.getInt("effects.particles.count"));
-            } catch (Exception e) {}
         }
     }
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        if (!isEnabled) return;
-        if (hopperCache.containsKey(event.getBlock().getLocation())) {
-            if (!event.getPlayer().hasPermission(getConfig().getString("permissions.break"))) {
-                event.getPlayer().sendMessage(getMsg("no-permission"));
-                event.setCancelled(true);
-                return;
-            }
-            String type = hopperCache.get(event.getBlock().getLocation());
-            dataManager.removeHopper(event.getBlock().getLocation());
-            hopperCache.remove(event.getBlock().getLocation());
+        Location loc = event.getBlock().getLocation();
+        if (hopperCache.containsKey(loc)) {
+            String type = getHopperType(loc);
+            deleteHopper(loc);
             event.setDropItems(false);
-            event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), getHopperItem(type, 1));
+            loc.getWorld().dropItemNaturally(loc, getHopperItem(type, 1));
             event.getPlayer().sendMessage(getMsg("broken"));
         }
     }
@@ -241,109 +302,76 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     public void onItemSpawn(ItemSpawnEvent event) {
         if (!isEnabled) return;
         Location itemLoc = event.getLocation();
-        for (Map.Entry<Location, String> entry : hopperCache.entrySet()) {
-            Location hopperLoc = entry.getKey();
-            if (!hopperLoc.getWorld().equals(itemLoc.getWorld())) continue;
-
-            String type = entry.getValue();
-            int radius = typeRadiusMap.getOrDefault(type, -1);
-            boolean shouldCollect = false;
-
-            if (radius == -1) {
-                if (hopperLoc.getChunk().equals(itemLoc.getChunk())) shouldCollect = true;
-            } else {
-                // Centre la position du hopper au milieu du bloc pour un rayon symétrique
-                Location hopperCenter = hopperLoc.clone().add(0.5, 0.5, 0.5);
-                if (hopperCenter.distance(itemLoc) <= radius+1) shouldCollect = true;
-            }
-
-            if (shouldCollect) {
-                Block block = hopperLoc.getBlock();
-                if (block.getState() instanceof Hopper) {
-                    Hopper hopper = (Hopper) block.getState();
-                    ItemStack item = event.getEntity().getItemStack();
-                    boolean inList = filterList.contains(item.getType().toString());
-                    if ((useWhitelist && !inList) || (!useWhitelist && inList)) return;
-                    event.setCancelled(true);
-                    HashMap<Integer, ItemStack> leftover = hopper.getInventory().addItem(item);
-                    if (!leftover.isEmpty()) {
-                        for (ItemStack drop : leftover.values()) {
-                            block.getWorld().dropItemNaturally(hopperLoc.add(0.5, 1.2, 0.5), drop);
-                        }
-                    }
-                    return;
-                } else {
-                    dataManager.removeHopper(hopperLoc);
-                    hopperCache.remove(hopperLoc);
-                }
+        for (Map.Entry<Location, HopperData> entry : hopperCache.entrySet()) {
+            Location hLoc = entry.getKey();
+            if (!hLoc.getWorld().equals(itemLoc.getWorld())) continue;
+            int radius = typeRadiusMap.getOrDefault(entry.getValue().getType(), -1);
+            boolean collect = (radius == -1) ? hLoc.getChunk().equals(itemLoc.getChunk()) : hLoc.distance(itemLoc) <= radius;
+            if (collect && hLoc.getBlock().getState() instanceof Hopper h) {
+                ItemStack stack = event.getEntity().getItemStack();
+                if ((useWhitelist && !filterList.contains(stack.getType().name())) || (!useWhitelist && filterList.contains(stack.getType().name()))) return;
+                event.setCancelled(true);
+                h.getInventory().addItem(stack);
+                entry.getValue().addCollectedItems(stack.getAmount());
+                return;
             }
         }
     }
 
-    // --- COMANDOS ---
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.HOPPER) {
+            Location loc = event.getClickedBlock().getLocation();
+            if (hopperCache.containsKey(loc) && event.getPlayer().isSneaking()) {
+                event.setCancelled(true);
+                menuGUI.openInfoMenu(event.getPlayer(), loc, hopperCache.get(loc));
+            }
+        }
+    }
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!sender.hasPermission(getConfig().getString("permissions.admin"))) {
-            sender.sendMessage(getMsg("no-permission"));
-            return true;
-        }
-
         if (args.length == 0) {
             sender.sendMessage(colorize("&#fb00ff&lxChunkHoppers &7v" + getDescription().getVersion()));
-            sender.sendMessage(colorize("&7/xch menu &8- &fAbrir menú"));
-            sender.sendMessage(colorize("&7/xch give <player> <type> &8- &fDar item"));
-            sender.sendMessage(colorize("&7/xch reload"));
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("reload")) {
-            loadConfiguration();
-            sender.sendMessage(getMsg("reload"));
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("menu")) {
-            if (sender instanceof Player) {
-                menuGUI.openMenu((Player) sender);
-            } else {
-                sender.sendMessage(ChatColor.RED + "Solo para jugadores.");
+            sender.sendMessage(colorize("&7/xch menu &8- &fMenu Admin"));
+            if (sender.hasPermission("xchunkhoppers.admin")) {
+                sender.sendMessage(colorize("&7/xch reload &8- &fRecargar plugin"));
             }
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("give")) {
-            if (args.length < 3) {
-                sender.sendMessage(colorize("&cUso: /xch give <player> <type> [amount]"));
-                return true;
+        switch (args[0].toLowerCase()) {
+            case "reload" -> { if (sender.hasPermission("xchunkhoppers.admin")) { loadConfiguration(); sender.sendMessage(getMsg("reload")); } }
+            case "menu" -> { if (sender instanceof Player p && p.hasPermission("xchunkhoppers.admin")) menuGUI.openAdminMenu(p); }
+            case "give" -> {
+                if (sender.hasPermission("xchunkhoppers.admin") && args.length >= 3) {
+                    Player t = Bukkit.getPlayer(args[1]);
+                    if (t != null) {
+                        t.getInventory().addItem(getHopperItem(args[2], args.length > 3 ? Integer.parseInt(args[3]) : 1));
+                        sender.sendMessage(getMsg("give-success").replace("%player%", t.getName()).replace("%type%", args[2]).replace("%amount%", args.length > 3 ? args[3] : "1"));
+                    }
+                }
             }
-            Player target = Bukkit.getPlayer(args[1]);
-            String type = args[2].toLowerCase();
-            if (target == null) {
-                sender.sendMessage(getMsg("player-not-found"));
-                return true;
-            }
-            if (!typeRadiusMap.containsKey(type)) {
-                sender.sendMessage(getMsg("type-not-found"));
-                return true;
-            }
-            int amount = 1;
-            if (args.length >= 4) {
-                try { amount = Integer.parseInt(args[3]); } catch (NumberFormatException ignored) {}
-            }
-            target.getInventory().addItem(getHopperItem(type, amount));
-            sender.sendMessage(getMsg("give-success").replace("%amount%", String.valueOf(amount)).replace("%type%", type).replace("%player%", target.getName()));
-            return true;
         }
-        return false;
+        return true;
     }
 
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
-        if (!sender.hasPermission("xchunkhoppers.admin")) return Collections.emptyList();
-        if (args.length == 1) return Arrays.asList("give", "menu", "reload");
-        if (args.length == 2 && args[0].equalsIgnoreCase("give")) return null;
-        if (args.length == 3 && args[0].equalsIgnoreCase("give")) return new ArrayList<>(typeRadiusMap.keySet());
-        return Collections.emptyList();
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            if (sender.hasPermission("xchunkhoppers.admin")) {
+                completions.addAll(Arrays.asList("reload", "menu", "give"));
+            }
+            // Añadir el nombre del comando dinámico de la tienda para tabulación
+            List<String> shopCommands = getConfig().getStringList("shop-menu.commands");
+            if (!shopCommands.isEmpty()) completions.add(shopCommands.get(0));
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
+            return null;
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
+            completions.addAll(typeRadiusMap.keySet());
+        }
+        return completions.stream().filter(s -> s.startsWith(args[args.length-1].toLowerCase())).collect(Collectors.toList());
     }
 
     public static class HopperExpansion extends PlaceholderExpansion {
@@ -351,11 +379,30 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         public HopperExpansion(xChunkHoppers plugin) { this.plugin = plugin; }
         @Override public @NotNull String getIdentifier() { return "xchunkhopper"; }
         @Override public @NotNull String getAuthor() { return "WillfryDev"; }
-        @Override public @NotNull String getVersion() { return plugin.getDescription().getVersion(); }
+        @Override public @NotNull String getVersion() { return "1.0.3"; }
         @Override public boolean persist() { return true; }
         @Override public String onPlaceholderRequest(Player player, @NotNull String params) {
-            if (params.equalsIgnoreCase("count")) return String.valueOf(plugin.hopperCache.size());
-            return null;
+            return params.equalsIgnoreCase("count") ? String.valueOf(plugin.hopperCache.size()) : null;
+        }
+    }
+
+    private class DynamicCommand extends org.bukkit.command.Command {
+        private final GUI gui;
+        protected DynamicCommand(@NotNull String name, GUI gui) {
+            super(name);
+            this.setAliases(new ArrayList<>());
+            this.setDescription("Abre la tienda de tolvas");
+            this.setUsage("/" + name);
+            this.gui = gui;
+        }
+        @Override
+        public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+            if (sender instanceof Player p) { gui.openShopMenu(p); return true; }
+            sender.sendMessage("Este comando solo es para jugadores."); return false;
+        }
+        @Override
+        public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
+            return new ArrayList<>(); // Sin tabulación interna de argumentos para la tienda
         }
     }
 }

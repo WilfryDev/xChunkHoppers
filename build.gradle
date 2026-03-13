@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'jn.willfrydev'
-version = '1.0.0'
+version = 'v1.0.3'
 
 repositories {
     mavenCentral()
@@ -16,12 +16,19 @@ repositories {
         name = "placeholderapi"
         url = "https://repo.extendedclip.com/content/repositories/placeholderapi/"
     }
+    maven {
+        name = "jitpack"
+        url = "https://jitpack.io"
+    }
 }
 
 dependencies {
-
     compileOnly "org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT"
     compileOnly "me.clip:placeholderapi:2.11.6"
+    compileOnly "com.github.MilkBowl:VaultAPI:1.7"
+
+    // bStats
+    implementation 'org.bstats:bstats-bukkit:3.0.2'
 }
 
 java {
@@ -32,4 +39,8 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+shadowJar {
+    relocate 'org.bstats', 'jn.willfrydev.xchunkhoppers.bstats'
 }

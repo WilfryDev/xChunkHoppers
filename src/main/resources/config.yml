@@ -1,102 +1,193 @@
-#         ___ _                 _
-#__  __ / __\ |__  _   _ _ __ | | __ /\  /\___  _ __  _ __   ___ _ __ ___
-#\ \/ // /  | '_ \| | | | '_ \| |/ // /_/ / _ \| '_ \| '_ \ / _ \ '__/ __|
-# >  </ /___| | | | |_| | | | |   </ __  / (_) | |_) | |_) |  __/ |  \__ \
-#/_/\_\____/|_| |_|\__,_|_| |_|_|\_\/ /_/ \___/| .__/| .__/ \___|_|  |___/
+#          ___ _                 _
+# __  __ / __\ |__  _   _ _ __ | | __ /\  /\___  _ __  _ __   ___ _ __ ___
+# \ \/ // /  | '_ \| | | | '_ \| |/ // /_/ / _ \| '_ \| '_ \ / _ \ '__/ __|
+#  >  </ /___| | | | |_| | | | |   </ __  / (_) | |_) | |_) |  __/ |  \__ \
+# /_/\_\____/|_| |_|\__,_|_| |_|_|\_\/ /_/ \___/| .__/| .__/ \___|_|  |___/
 #                                              |_|   |_|
-#                 Web: https://xplugin.es
-#          Wiki: https://xplugin.es/xchunkhoppers
-#            Discord: https://discord.xplugin.es
+#
+#         Support: https://discord.xplugin.es
 
 settings:
-  # Enable or disable the entire plugin functionality
   enabled: true
-
-  # If true: Only collects items in 'filter-list'.
-  # If false: Collects everything EXCEPT items in 'filter-list'.
   use-whitelist: false
-
-  # List of materials (Use Bukkit Material enum names)
   filter-list:
     - "COBBLESTONE"
     - "DIRT"
     - "ROTTEN_FLESH"
 
-# Menu GUI
-menu:
-  title: "&#B3B3B3Admin hoppers menu"
-  size: 27
+#          CONFIGURACIÓN DE MENÚS
+shop-menu:
+  commands:
+    - "hoppershop"
+    - "tiendatolvas"
+    - "tolvas"
+    - "tolvashoppen"
+  title: "          Tienda de Tolvas"
+  size: 36
   fill:
     enabled: true
-    material: "BLACK_STAINED_GLASS_PANE" # Material to fill empty spaces
+    material: "BLACK_STAINED_GLASS_PANE"
 
-# Hoppers
+  close-button:
+    enabled: true
+    material: "BARRIER"
+    name: "&fMenú &8▸ &cerrar"
+    slot: 31
+    lore:
+      - "&7 ℹ Descripción"
+      - ""
+      - "&c ✘ ¡Click para cerrar!"
+      - ""
+
+  price-format:
+    - "&7Botón | Compra"
+    - ""
+    - "&7 ℹ Información:"
+    - " &8 • &fPrecio: &a$%price%$ ⛃"
+    - ""
+    - "&e ▸ ¡Click para comprar!"
+    - ""
+
+  items:
+    item_1:
+      material: "IRON_TRAPDOOR"
+      type: "default"
+      price: 5000.0
+      slot: 10
+    item_2:
+      material: "GOLD_TRAPDOOR"
+      type: "vip"
+      price: 25000.0
+      slot: 11
+    item_3:
+      material: "DIAMOND_TRAPDOOR"
+      type: "god"
+      price: 100000.0
+      slot: 12
+
+info-menu:
+  title: "        Información de la tolva"
+  size: 27
+  date-format: "dd/MM/yyyy HH:mm"
+  fill:
+    enabled: true
+    material: "GRAY_STAINED_GLASS_PANE"
+  info-item:
+    material: "PAPER"
+    slot: 13
+    name: "&#00ff00 ★ ¡Estadísticas!"
+    lore:
+      - "&8Información General"
+      - ""
+      - "&8 | &fDueño: &#FCD05C%owner%"
+      - "&8 | &fTipo: &#3DFF4A%type%"
+      - "&8 | &fColocado el: &#C9E4DE%date%"
+      - "&8 | &fÍtems Absorbidos: &6%items%"
+      - ""
+      - "&#00ff00 ☄ ¡Sigue recolectando!"
+
+  preview-slots:
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+
+#      CONFIGURACIÓN DE TIPOS DE TOLVAS
+# Colores Pasteles usados: #00ff00 (Verde), #87CEEB (Celeste), #CDB4DB (Lavanda)
 hopper-types:
   default:
     radius: -1
-    name: "&#00ff00Chunk Hopper &7(16x16)"
+    name: "&fTolva &8▸ &#00ff00&lBÁSICA &7「16x16」"
     lore:
-      - "&8 Special Item"
+      - "&8Objeto exclusivo"
       - ""
-      - "&f Place this block to"
-      - "&f collect all items"
-      - "&f in this chunk automatically."
+      - "&f Recolecta todos los ítems"
+      - "&f usando esta tolva en todo"
+      - "&f un chunk sin perder nada."
       - ""
-      - "&eWhole Chunk!"
-      - ""
+      - "&#3DFF4A ▼ ¡Colócalo en el suelo! "
+    hologram:
+      enabled: true
+      height: 1.5
+      scale: 1.0
+      view-distance: 20.0
+      billboard: "VERTICAL"
+      shadow: true
+      background-color: "TRANSPARENT"
+      lines:
+        - "&#00ff00☄ &lTOLVA MÁGICA &#00ff00☄"
+        - "&8ʀᴇᴄᴏʟᴇᴄᴛᴏʀ"
+        - ""
+        - "&fDueño: &#3DFF4A%player%"
+        - "&fRecolectado: &6%items% items"
+
   vip:
     radius: 4
-    name: "&#ffaa00Hopper &lVIP &7(8x8)"
+    name: "&fTolva &8▸ &#87CEEB&lESPECIAL &7「8x8」"
     lore:
-      - "&8 VIP Item"
+      - "&8Objeto exclusivo"
       - ""
-      - "&f Place this block to"
-      - "&f collect all items"
-      - "&f in this chunk automatically."
+      - "&f Una tolva optimizada con"
+      - "&f un radio de 4 bloques para"
+      - "&f zonas de farmeo precisas."
       - ""
-      - "&eWhole Chunk!"
-      - ""
+      - "&#87CEEB ▼ ¡Colócalo en el suelo! "
+    hologram:
+      enabled: true
+      height: 1.5
+      scale: 1.0
+      view-distance: 20.0
+      billboard: "VERTICAL"
+      shadow: true
+      background-color: "TRANSPARENT"
+      lines:
+        - "&#87CEEB☄ &lTOLVA CELESTE &#87CEEB☄"
+        - "&8ʀᴇᴄᴏʟᴇᴄᴛᴏʀ ᴠɪᴘ"
+        - ""
+        - "&fDueño: &#87CEEB%player%"
+        - "&fRecolectado: &6%items% items"
+
   god:
     radius: 32
-    name: "&#ff0000Hopper &lGOD &7(64x64)"
+    name: "&fTolva &8▸ &#CDB4DB&lDIVINA &7「64x64」"
     lore:
-      - "&8 GOD Item"
+      - "&8Objeto exclusivo"
       - ""
-      - "&f Place this block to"
-      - "&f collect all items"
-      - "&f in this chunk automatically."
+      - "&f El recolector definitivo."
+      - "&f Cubre un área masiva de"
+      - "&f 32 bloques a la redonda."
       - ""
-      - "&eWhole Chunk!"
-      - ""
+      - "&#CDB4DB ▼ ¡Colócalo en el suelo! "
+    hologram:
+      enabled: true
+      height: 1.5
+      scale: 1.0
+      view-distance: 20.0
+      billboard: "VERTICAL"
+      shadow: true
+      background-color: "TRANSPARENT"
+      lines:
+        - "&#CDB4DB☄ &lTOLVA DIVINA &#CDB4DB☄"
+        - "&8ʀᴇᴄᴏʟᴇᴄᴛᴏʀ ᴍᴀsɪᴠᴏ"
+        - ""
+        - "&fDueño: &#CDB4DB%player%"
+        - "&fRecolectado: &6%items% items"
 
-# Configuration for effects when placing the Hopper and using the Menu
-effects:
-  sound:
-    enabled: true
-    # Sound names: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
-    type: "ENTITY_PLAYER_LEVELUP"
-    volume: 1.0
-    pitch: 1.0
-  particles:
-    enabled: true
-    type: "VILLAGER_HAPPY"
-    count: 15
-
-permissions:
-  admin: "xchunkhoppers.admin"
-  place: "xchunkhoppers.place"
-  break: "xchunkhoppers.break"
-
+#                MENSAJES
 messages:
-  prefix: "&8[&d&lxCH&8] "
-  no-permission: "&cYou do not have permission to do this."
-  reload: "&#00ff00Configuration and Data reloaded successfully."
-  player-not-found: "&cPlayer not found."
-  give-success: "&aYou gave &e%amount% &f%type% &a to &f%player%&a."
-  received: "&aYou have received a &dChunk Hopper&a."
-  placed: "&#00ff00Chunk Hopper placed! It will now collect items in this range."
-  broken: "&eYou have removed the Chunk Hopper."
-  already-exists: "&cThere is already a Chunk Hopper here."
-  type-not-found: "&cThat Hopper type does not exist in the config."
+  prefix: ""
+  no-permission: "&c✘ No tienes permiso."
+  reload: "&#00ff00✔ Configuración recargada."
+  player-not-found: "&c✘ Jugador no encontrado."
+  type-not-found: "&c✘ Ese tipo no existe."
+  give-success: "&a✔ Has dado &e%amount%x %type% &aa &f%player%&a."
+  received: "&a✔ Has recibido una &dTolva Especial&a."
+  placed: "&#00ff00✔ ¡Tolva colocada!"
+  broken: "&e⚠ Has retirado la tolva."
+  already-exists: "&c✘ Ya hay una tolva aquí."
+  shop-buy-success: "&a✔ ¡Compra exitosa! Has pagado &e$%price%&a."
+  shop-insufficient-funds: "&c✘ Te faltan &e$%missing% &cpara comprar esto."
+  shop-inventory-full: "&c✘ No tienes espacio en tu inventario."
 
-version: 1.0.0
+version: v1.0.3
