@@ -32,12 +32,15 @@ shop-menu:
   close-button:
     enabled: true
     material: "BARRIER"
-    name: "&fMenú &8▸ &cerrar"
+    name: "&f Menú &8▸ &#FF3D3DCerrar"
     slot: 31
     lore:
-      - "&7 ℹ Descripción"
+      - "&8 ℹ Descripción"
       - ""
-      - "&c ✘ ¡Click para cerrar!"
+      - "&f Aqui podras cerrar  "
+      - "&f este menu dando click  "
+      - ""
+      - "&#FF3D3D ✘ ¡Click para cerrar!"
       - ""
 
   price-format:
@@ -51,17 +54,17 @@ shop-menu:
 
   items:
     item_1:
-      material: "IRON_TRAPDOOR"
+      material: "HOPPER"
       type: "default"
       price: 5000.0
       slot: 10
     item_2:
-      material: "GOLD_TRAPDOOR"
+      material: "HOPPER"
       type: "vip"
       price: 25000.0
       slot: 11
     item_3:
-      material: "DIAMOND_TRAPDOOR"
+      material: "HOPPER"
       type: "god"
       price: 100000.0
       slot: 12
@@ -95,7 +98,6 @@ info-menu:
     - 15
 
 #      CONFIGURACIÓN DE TIPOS DE TOLVAS
-# Colores Pasteles usados: #00ff00 (Verde), #87CEEB (Celeste), #CDB4DB (Lavanda)
 hopper-types:
   default:
     radius: -1
@@ -184,7 +186,7 @@ menu:
 
 #                MENSAJES
 messages:
-  prefix: ""
+  prefix: "&#DBCDF0&lTOLVAS &8▸ "
   no-permission: "&c✘ No tienes permiso."
   reload: "&#00ff00✔ Configuración recargada."
   player-not-found: "&c✘ Jugador no encontrado."

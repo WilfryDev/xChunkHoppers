@@ -374,18 +374,17 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
             }
             case "give" -> {
                 if (sender.hasPermission("xchunkhoppers.admin") && args.length >= 3) {
+
                     Player t = Bukkit.getPlayer(args[1]);
                     if (t != null) {
                         int amount = args.length > 3 ? Integer.parseInt(args[3]) : 1;
                         t.getInventory().addItem(getHopperItem(args[2], amount));
 
-                        // Mensaje al admin
                         sender.sendMessage(getMsg("give-success")
                                 .replace("%player%", t.getName())
                                 .replace("%type%", args[2])
                                 .replace("%amount%", String.valueOf(amount)));
 
-                        // Mensaje al jugador
                         t.sendMessage(getMsg("received"));
                     } else {
                         sender.sendMessage(getMsg("player-not-found"));
