@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2025 xPlugins x WillfryDev
+ * Copyright (c) 2025 xPlugins
  */
 
 package jn.willfrydev.xchunkhoppers;
@@ -124,6 +124,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     }
 
     private void registerCommand(String name) {
+
         PluginCommand cmd = getCommand(name);
         if (cmd != null) {
             cmd.setExecutor(this);
@@ -132,6 +133,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     }
 
     private boolean setupEconomy() {
+
         if (getServer().getPluginManager().getPlugin("Vault") == null) return false;
         RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) return false;
@@ -184,7 +186,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
                 commandMap.register(getName().toLowerCase(), cmd);
                 dynamicCommands.put(cmdName.toLowerCase(), cmd);
             }
-            log("&aComandos dinámicos registrados: " + commands);
+            log("&aComandos de tienda registrados: " + commands);
         } catch (Exception e) {
             getLogger().severe("No se pudo registrar comandos dinámicos usando Reflection.");
         }
@@ -207,9 +209,8 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
                 entry.getValue().unregister(commandMap);
             }
             dynamicCommands.clear();
-            log("&eComandos dinámicos antiguos desregistrados.");
         } catch (Exception e) {
-            getLogger().warning("No se pudo desregistrar comandos dinámicos antiguos usando Reflection.");
+            getLogger().warning("No se pudo desregistrar comandos dinámicos antiguos.");
         }
     }
 
@@ -275,6 +276,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
+
         if (!isEnabled) return;
         ItemStack item = event.getItemInHand();
         if (item.getType() == Material.HOPPER && item.hasItemMeta()) {
@@ -287,7 +289,9 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     }
 
     @EventHandler
+
     public void onBlockBreak(BlockBreakEvent event) {
+
         Location loc = event.getBlock().getLocation();
         if (hopperCache.containsKey(loc)) {
             String type = getHopperType(loc);
@@ -299,17 +303,30 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
     }
 
     @EventHandler
+
     public void onItemSpawn(ItemSpawnEvent event) {
         if (!isEnabled) return;
         Location itemLoc = event.getLocation();
         for (Map.Entry<Location, HopperData> entry : hopperCache.entrySet()) {
             Location hLoc = entry.getKey();
             if (!hLoc.getWorld().equals(itemLoc.getWorld())) continue;
+
             int radius = typeRadiusMap.getOrDefault(entry.getValue().getType(), -1);
-            boolean collect = (radius == -1) ? hLoc.getChunk().equals(itemLoc.getChunk()) : hLoc.distance(itemLoc) <= radius;
+            boolean collect;
+
+            if (radius == -1) {
+                collect = hLoc.getChunk().equals(itemLoc.getChunk());
+            } else {
+
+                double dx = Math.abs(hLoc.getX() - itemLoc.getX());
+                double dz = Math.abs(hLoc.getZ() - itemLoc.getZ());
+                collect = dx <= radius && dz <= radius;
+            }
+
             if (collect && hLoc.getBlock().getState() instanceof Hopper h) {
                 ItemStack stack = event.getEntity().getItemStack();
                 if ((useWhitelist && !filterList.contains(stack.getType().name())) || (!useWhitelist && filterList.contains(stack.getType().name()))) return;
+
                 event.setCancelled(true);
                 h.getInventory().addItem(stack);
                 entry.getValue().addCollectedItems(stack.getAmount());
@@ -328,7 +345,6 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
             }
         }
     }
-
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
@@ -341,15 +357,43 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         }
 
         switch (args[0].toLowerCase()) {
-            case "reload" -> { if (sender.hasPermission("xchunkhoppers.admin")) { loadConfiguration(); sender.sendMessage(getMsg("reload")); } }
-            case "menu" -> { if (sender instanceof Player p && p.hasPermission("xchunkhoppers.admin")) menuGUI.openAdminMenu(p); }
+            case "reload" -> {
+                if (sender.hasPermission("xchunkhoppers.admin")) {
+                    loadConfiguration();
+                    sender.sendMessage(getMsg("reload"));
+                } else {
+                    sender.sendMessage(getMsg("no-permission"));
+                }
+            }
+            case "menu" -> {
+                if (sender instanceof Player p && p.hasPermission("xchunkhoppers.admin")) {
+                    menuGUI.openAdminMenu(p);
+                } else if (!sender.hasPermission("xchunkhoppers.admin")) {
+                    sender.sendMessage(getMsg("no-permission"));
+                }
+            }
             case "give" -> {
                 if (sender.hasPermission("xchunkhoppers.admin") && args.length >= 3) {
                     Player t = Bukkit.getPlayer(args[1]);
                     if (t != null) {
-                        t.getInventory().addItem(getHopperItem(args[2], args.length > 3 ? Integer.parseInt(args[3]) : 1));
-                        sender.sendMessage(getMsg("give-success").replace("%player%", t.getName()).replace("%type%", args[2]).replace("%amount%", args.length > 3 ? args[3] : "1"));
+                        int amount = args.length > 3 ? Integer.parseInt(args[3]) : 1;
+                        t.getInventory().addItem(getHopperItem(args[2], amount));
+
+                        // Mensaje al admin
+                        sender.sendMessage(getMsg("give-success")
+                                .replace("%player%", t.getName())
+                                .replace("%type%", args[2])
+                                .replace("%amount%", String.valueOf(amount)));
+
+                        // Mensaje al jugador
+                        t.sendMessage(getMsg("received"));
+                    } else {
+                        sender.sendMessage(getMsg("player-not-found"));
                     }
+                } else if (!sender.hasPermission("xchunkhoppers.admin")) {
+                    sender.sendMessage(getMsg("no-permission"));
+                } else {
+                    sender.sendMessage(colorize("&cUso: /xch give <jugador> <tipo> [cantidad]"));
                 }
             }
         }
@@ -363,7 +407,6 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
             if (sender.hasPermission("xchunkhoppers.admin")) {
                 completions.addAll(Arrays.asList("reload", "menu", "give"));
             }
-            // Añadir el nombre del comando dinámico de la tienda para tabulación
             List<String> shopCommands = getConfig().getStringList("shop-menu.commands");
             if (!shopCommands.isEmpty()) completions.add(shopCommands.get(0));
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
@@ -402,7 +445,7 @@ public class xChunkHoppers extends JavaPlugin implements Listener, CommandExecut
         }
         @Override
         public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
-            return new ArrayList<>(); // Sin tabulación interna de argumentos para la tienda
+            return new ArrayList<>();
         }
     }
 }
